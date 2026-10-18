@@ -480,3 +480,9 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local build outputs
+.ilasm/
+TicTacToeIL.dll
+TicTacToeIL.runtimeconfig.json
+TicTacToeAsm.exe

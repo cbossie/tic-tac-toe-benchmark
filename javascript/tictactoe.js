@@ -28,29 +28,42 @@ function render(board) {
 }
 
 // Minimax: positive score favours the computer.
-function minimax(board, player, depth) {
+// Alpha-beta pruning; a full window at the root keeps every move's score exact.
+function minimax(board, player, depth, alpha, beta) {
   const w = winner(board);
   if (w === COMPUTER) return 10 - depth;
   if (w === HUMAN) return depth - 10;
   if (isFull(board)) return 0;
 
-  const scores = [];
+  const maximizing = player === COMPUTER;
+  let best = maximizing ? -Infinity : Infinity;
   for (let i = 0; i < 9; i++) {
     if (board[i]) continue;
     board[i] = player;
-    scores.push(minimax(board, player === COMPUTER ? HUMAN : COMPUTER, depth + 1));
+    const score = minimax(board, maximizing ? HUMAN : COMPUTER, depth + 1, alpha, beta);
     board[i] = null;
+    if (maximizing) {
+      if (score > best) best = score;
+      if (best > alpha) alpha = best;
+    } else {
+      if (score < best) best = score;
+      if (best < beta) beta = best;
+    }
+    if (alpha >= beta) break;
   }
-  return player === COMPUTER ? Math.max(...scores) : Math.min(...scores);
+  return best;
 }
 
 function computerMove(board) {
+  // Every opening move draws against perfect play, so skip the search.
+  if (board.every((cell) => !cell)) return Math.floor(Math.random() * 9);
+
   let best = -Infinity;
   let moves = [];
   for (let i = 0; i < 9; i++) {
     if (board[i]) continue;
     board[i] = COMPUTER;
-    const score = minimax(board, HUMAN, 1);
+    const score = minimax(board, HUMAN, 1, -Infinity, Infinity);
     board[i] = null;
     if (score > best) {
       best = score;
@@ -105,4 +118,30 @@ async function main() {
   rl.close();
 }
 
-main();
+// The computer replies to each of the nine possible human openings, many times over.
+// The other versions run the same workload with their own --bench flag.
+function bench() {
+  const reps = 200;
+  let coldNs = 0n;
+  let warmNs = 0n;
+  for (let rep = 0; rep < reps; rep++) {
+    const start = process.hrtime.bigint();
+    for (let i = 0; i < 9; i++) {
+      const board = Array(9).fill(null);
+      board[i] = HUMAN;
+      computerMove(board);
+    }
+    const elapsed = process.hrtime.bigint() - start;
+    if (rep === 0) coldNs = elapsed;
+    else warmNs += elapsed;
+  }
+  console.log(`first pass : ${(Number(coldNs) / 9 / 1000).toFixed(1)} us/move`);
+  console.log(`later passes: ${(Number(warmNs) / (9 * (reps - 1)) / 1000).toFixed(2)} us/move`);
+}
+
+if (process.argv.includes("--bench")) {
+  rl.close();
+  bench();
+} else {
+  main();
+}
