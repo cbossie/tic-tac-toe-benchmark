@@ -1,4 +1,4 @@
-# Tic-Tac-Toe, seven ways
+# Tic-Tac-Toe, eight ways
 
 A command-line game of tic-tac-toe against the computer, written several ways to compare how they
 run. You are **X**, the computer is **O**, and the board is redrawn after every move. Type a square
@@ -17,6 +17,7 @@ program is built:
 | [`msil/`](msil) | The memoized solver written by hand in MSIL | `.\buildil.ps1`, then `dotnet TicTacToeIL.dll` |
 | [`assembly-x64-memoized/`](assembly-x64-memoized) | The memoized solver written by hand in x64 assembly | `.\buildasm.ps1`, then `.\TicTacToeAsm.exe` |
 | [`assembly-x64-lookup-table/`](assembly-x64-lookup-table) | The lookup table written by hand in x64 assembly | `.\buildasm.ps1`, then `.\TicTacToeAsmTable.exe` |
+| [`assembly-x64-state-machine/`](assembly-x64-state-machine) | The game as a precomputed state machine, in x64 assembly: no search, no board lookup | `.\buildasm.ps1`, then `.\TicTacToeAsmStates.exe` |
 
 See [benchmark.md](benchmark.md) for how they compare.
 
@@ -102,6 +103,13 @@ cd csharp-lookup-table
 dotnet run GenTable.cs ../assembly-x64-lookup-table/TicTacToeTable.asm
 ```
 
+and the state machine's tables, with `--state-machine`:
+
+```powershell
+cd csharp-lookup-table
+dotnet run GenTable.cs ../assembly-x64-state-machine/TicTacToeStates.asm --state-machine
+```
+
 ### MSIL
 
 ```powershell
@@ -113,7 +121,7 @@ dotnet TicTacToeIL.dll
 `buildil.ps1` assembles `TicTacToe.il` into `TicTacToeIL.dll`. The first run downloads the IL
 assembler into `msil\.ilasm\`; set `$env:ILASM` to use your own `ilasm.exe` instead.
 
-### x64 assembly (memoized and lookup table)
+### x64 assembly (memoized, lookup table and state machine)
 
 ```powershell
 cd assembly-x64-memoized
@@ -127,9 +135,21 @@ cd assembly-x64-lookup-table
 .\TicTacToeAsmTable.exe
 ```
 
+```powershell
+cd assembly-x64-state-machine
+.\buildasm.ps1
+.\TicTacToeAsmStates.exe
+```
+
 Each `buildasm.ps1` finds Visual Studio, then assembles that directory's `.asm` file with `ml64` and
 links it. The results are standalone executables that use no C runtime and no .NET: 4.5 KB for the
-memoized version and 16 KB for the lookup table (which carries its 3,052-position table).
+memoized version, 16 KB for the lookup table (which carries its 3,052-position table) and 91 KB for
+the state machine (which carries about 89 KB of state tables).
+
+The state machine never looks at the board to choose a move. It carries a state number: on its
+turn it reads that state's set of best moves, picks one at random and steps to the next state, and
+after your reply it steps again through a table. The board is kept only to draw it and to detect
+a win.
 
 If PowerShell refuses to run the scripts, start them with
 `powershell -ExecutionPolicy Bypass -File .\buildil.ps1` (or `buildasm.ps1`).
@@ -158,5 +178,6 @@ csharp-lookup-table/   TicTacToeTable.cs, GenTable.cs
 msil/                  TicTacToe.il, buildil.ps1
 assembly-x64-memoized/      TicTacToe.asm, buildasm.ps1
 assembly-x64-lookup-table/  TicTacToeTable.asm, buildasm.ps1
+assembly-x64-state-machine/ TicTacToeStates.asm, buildasm.ps1
 README.md, benchmark.md
 ```
